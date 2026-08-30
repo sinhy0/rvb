@@ -37,11 +37,13 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 120
+
     services:
       redis:
         image: redis:alpine
         ports:
           - 6379:6379
+
       trawl:
         image: ghcr.io/germondai/trawl:latest
         ports:
@@ -49,6 +51,7 @@ jobs:
         env:
           REDIS_URL: redis://redis:6379
         options: --shm-size=1gb
+
     steps:
       - name: Setup java
         uses: actions/setup-java@v5
@@ -116,7 +119,7 @@ jobs:
         env:
           APKS_REPO_TOKEN: ${{ secrets.APKS_REPO_TOKEN }}
         run: python3 .github/scripts/update_usage_tracker.py || true
-        
+
       - name: Cleanup old cached APKs
         run: bash .github/scripts/build_cache_cleanup.sh
 
@@ -174,7 +177,7 @@ jobs:
         with:
           branch: update
           skip_checkout: true
-          file_pattern: build.md *-update.json
+          file_pattern: build.md
           commit_message: Bump version ${{ steps.version.outputs.NEXT_VER_CODE }}
 
       - name: Remove frequently updated apps
