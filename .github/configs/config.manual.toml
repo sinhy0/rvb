@@ -3,7 +3,7 @@ cli-version = "dev"
 enable-module-update = true
 
 [twitter-piko]
-enabled = true
+enabled = false
 pkg-name = "com.twitter.android"
 app-name = "twitter"
 rv-brand = "morphe-piko"
@@ -12,4 +12,16 @@ arch = "auto"
 patches-source = "crimera/piko"
 cli-source = "MorpheApp/morphe-desktop"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/x-corp/twitter/"
+dpi = "auto"
+
+[instagram-piko]
+enabled = true
+pkg-name = "com.instagram.android"
+app-name = "instagram"
+rv-brand = "morphe-piko"
+build-mode = "apk"
+arch = "auto"
+patches-source = "crimera/piko"
+cli-source = "MorpheApp/morphe-desktop"
+apkmirror-dlurl = "https://www.apkmirror.com/apk/instagram/instagram-instagram/"
 dpi = "auto"
