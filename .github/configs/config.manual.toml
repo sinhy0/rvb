@@ -3,7 +3,7 @@ cli-version = "dev"
 enable-module-update = true
 
 [twitter-piko]
-enabled = false
+enabled = true
 pkg-name = "com.twitter.android"
 app-name = "twitter"
 rv-brand = "morphe-piko"
@@ -15,7 +15,7 @@ apkmirror-dlurl = "https://www.apkmirror.com/apk/x-corp/twitter/"
 dpi = "auto"
 
 [instagram-piko]
-enabled = false
+enabled = true
 pkg-name = "com.instagram.android"
 app-name = "instagram"
 rv-brand = "morphe-piko"
@@ -27,7 +27,7 @@ apkmirror-dlurl = "https://www.apkmirror.com/apk/instagram/instagram-instagram/"
 dpi = "auto"
 
 [youtube-morphe]
-enabled = false
+enabled = true
 pkg-name = "com.google.android.youtube"
 app-name = "youtube"
 rv-brand = "morphe"
