@@ -27,24 +27,6 @@ dpi = "nodpi anydpi auto"
 archive-dlurl = "https://archive.org/download/geologically/apks/com.google.android.apps.youtube.music"
 github-dlurl = "https://github.com/nullcpy/apks/releases/tag/com.google.android.apps.youtube.music"
 
-[youtube-morphe-exp]
-enabled = true
-pkg-name = "com.google.android.youtube"
-app-name = "youtube"
-patch-folder = "youtube"
-rv-brand = "morphe-exp"
-build-mode = "both"
-arch = "both"
-version = "exp"
-patches-source = "MorpheApp/morphe-patches"
-cli-source = "MorpheApp/morphe-desktop"
-uptodown-dlurl = "https://youtube.en.uptodown.com/android"
-apkmirror-dlurl = "https://apkmirror.com/apk/google-inc/youtube"
-dpi = "nodpi anydpi auto"
-archive-dlurl = "https://archive.org/download/geologically/apks/com.google.android.youtube"
-github-dlurl = "https://github.com/nullcpy/apks/releases/tag/com.google.android.youtube"
-apkpure-dlurl = "https://apkpure.com/youtube-app/com.google.android.youtube"
-apkcombo-dlurl = "https://apkcombo.com/youtube/com.google.android.youtube"
 
 [youtube-music-morphe-exp]
 enabled = true
