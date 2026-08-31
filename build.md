@@ -1,4 +1,4 @@
-youtube-morphe (all): 21.04.223  
+youtube-morphe (all): 21.35.442  
 
 **Notes:**  
 • Install [MicroG-RE](https://github.com/MorpheApp/MicroG-RE/releases/latest) or [MicroG](https://github.com/ReVanced/GmsCore/releases/latest), required for Google APKs.  
