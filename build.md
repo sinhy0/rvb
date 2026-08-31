@@ -7,5 +7,5 @@ instagram-piko (all): 439.0.0.37.89
 [GitHub](https://github.com/nullcpy/rvb) | [Group](https://t.me/rvb27) | [Donate](https://fahim-ahmed05.github.io/donate) | [Website](https://nullcpy.github.io)
   
 CLI: MorpheApp/morphe-desktop-1.15.0-dev.4-all.jar  
-Patches: crimera/patches-3.9.0-dev.10.mpp  
-[Changelog](https://github.com/crimera/piko/releases/tag/v3.9.0-dev.10)  
+Patches: crimera/patches-3.9.0.mpp  
+[Changelog](https://github.com/crimera/piko/releases/tag/v3.9.0)  
