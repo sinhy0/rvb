@@ -9,7 +9,7 @@ arch = "both"
 patches-source = "MorpheApp/morphe-patches"
 cli-source = "MorpheApp/morphe-desktop"
 apkmirror-dlurl = "https://apkmirror.com/apk/google-inc/youtube"
-dpi = "nodpi anydpi auto"
+dpi = "auto"
 
 [youtube-music-morphe]
 enabled = true
