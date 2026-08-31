@@ -1,0 +1,104 @@
+name: Manual CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      youtube:
+        description: "Build YouTube"
+        required: false
+        type: boolean
+        default: false
+      youtube_music:
+        description: "Build YouTube Music"
+        required: false
+        type: boolean
+        default: false
+      remove_apks:
+        description: "Optional: APKs to remove from cache (space-separated)"
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: ci
+  cancel-in-progress: false
+
+jobs:
+  prepare_config:
+    runs-on: ubuntu-latest
+    outputs:
+      config_file: ${{ steps.prepare.outputs.config_file }}
+      selected: ${{ steps.prepare.outputs.selected }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare selected applications
+        id: prepare
+        shell: bash
+        env:
+          YOUTUBE: ${{ inputs.youtube }}
+          YOUTUBE_MUSIC: ${{ inputs.youtube_music }}
+        run: |
+          set -euo pipefail
+
+          selected=0
+          cp .github/configs/config.manual.toml /tmp/config.selected.toml
+
+          # Disable all supported manual apps first.
+          sed -i 's/^enabled = true$/enabled = false/' /tmp/config.selected.toml
+
+          if [[ "$YOUTUBE" == "true" ]]; then
+            sed -i '/^\[youtube-morphe\]/,/^\[/ s/^enabled = false$/enabled = true/' /tmp/config.selected.toml
+            selected=1
+          fi
+
+          if [[ "$YOUTUBE_MUSIC" == "true" ]]; then
+            sed -i '/^\[youtube-music-morphe\]/,/^\[/ s/^enabled = false$/enabled = true/' /tmp/config.selected.toml
+            selected=1
+          fi
+
+          if [[ "$selected" -eq 0 ]]; then
+            echo "::error::Select at least one application."
+            exit 1
+          fi
+
+          mkdir -p .github/configs
+          cp /tmp/config.selected.toml .github/configs/config.selected.toml
+
+          echo "config_file=.github/configs/config.selected.toml" >> "$GITHUB_OUTPUT"
+          echo "selected=$selected" >> "$GITHUB_OUTPUT"
+
+      - name: Upload selected config
+        uses: actions/upload-artifact@v4
+        with:
+          name: selected-config
+          path: .github/configs/config.selected.toml
+
+  build_manual:
+    needs: prepare_config
+    uses: ./.github/workflows/build.yml
+    with:
+      config_file: ${{ needs.prepare_config.outputs.config_file }}
+      remove_apks: ${{ inputs.remove_apks }}
+    secrets: inherit
+
+  trigger_cleanup:
+    needs: [build_manual]
+    if: ${{ always() && needs.build_manual.result == 'success' }}
+    uses: ./.github/workflows/cleanup.yml
+    secrets: inherit
+
+  trigger_website_update:
+    needs: [build_manual, trigger_cleanup]
+    if: ${{ always() && needs.build_manual.result == 'success' }}
+    uses: ./.github/workflows/update-website.yml
+    secrets: inherit
+
+  trigger_notify_failure:
+    needs: [build_manual]
+    if: ${{ failure() }}
+    uses: ./.github/workflows/notify.yml
+    with:
+      workflow_name: "Manual CI"
+    secrets: inherit
