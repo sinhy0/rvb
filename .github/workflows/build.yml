@@ -1,0 +1,206 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      config_file:
+        required: true
+        type: string
+      remove_apks:
+        required: false
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      config_file:
+        description: "Select the config file to use"
+        required: true
+        type: choice
+        default: ".github/configs/config.manual.toml"
+        options:
+          - ".github/configs/config.manual.toml"
+          - ".github/configs/config.dev.updated.json"
+          - ".github/configs/config.stable.updated.json"
+      remove_apks:
+        description: "Optional: APKs to remove from cache (space-separated, e.g., com.brave.browser-1.93.138-*.apk)"
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    services:
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+
+      trawl:
+        image: ghcr.io/germondai/trawl:latest
+        ports:
+          - 8191:8191
+        env:
+          REDIS_URL: redis://redis:6379
+        options: --shm-size=1gb
+
+    steps:
+      - name: Setup java
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          submodules: true
+
+      - name: Download selected config
+        if: ${{ inputs.config_file == '.github/configs/config.selected.toml' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: selected-config
+          path: .github/configs
+
+      - name: Resolve build context
+        id: context
+        run: bash .github/scripts/build_resolve_context.sh "${{ inputs.config_file }}"
+
+      - name: Install Bouncy Castle for BKS Keystore
+        run: |
+          if yq -o=json eval '.' "${{ steps.context.outputs.CONFIG_FILE }}" | jq -e 'to_entries | any((.value | type == "object") and .value.enabled == true and (.value["cli-source"] | type == "string" and test("npatch|lspatch"; "i")))' >/dev/null; then
+            bash .github/scripts/build_install_bouncy_castle.sh
+          else
+            echo "Skipping Bouncy Castle installation (no enabled Xposed modules found in config)."
+          fi
+
+      - name: Resolve version code
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/build_resolve_version.sh
+
+      - name: Restore APKs Cache
+        uses: actions/cache/restore@v6
+        with:
+          path: temp/apks
+          key: apks-${{ github.run_id }}
+          restore-keys: |
+            apks-
+
+      - name: Remove specific APKs from cache
+        if: ${{ inputs.remove_apks != '' }}
+        run: |
+          if [ -d "temp/apks" ]; then
+            cd temp/apks
+            for apk in ${{ inputs.remove_apks }}; do
+              echo "Removing $apk from cache..."
+              rm -f $apk || true
+            done
+          fi
+
+      - name: Build modules and apks
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.APKS_REPO_TOKEN }}
+          UPLOAD_APKS_REPO: "nullcpy/apks"
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          NEXT_VER_CODE: ${{ steps.version.outputs.NEXT_VER_CODE }}
+          CF_BYPASS_SOLVER_TRAWL_8191_ENABLED: "true"
+        run: |
+          set -euo pipefail
+          ./build.sh "${{ steps.context.outputs.CONFIG_FILE }}"
+
+      - name: Update Usage Tracker
+        env:
+          APKS_REPO_TOKEN: ${{ secrets.APKS_REPO_TOKEN }}
+        run: python3 .github/scripts/update_usage_tracker.py || true
+
+      - name: Cleanup old cached APKs
+        run: bash .github/scripts/build_cache_cleanup.sh
+
+      - name: Generate Cache Manifest
+        run: find temp/apks/ -maxdepth 1 -type f -printf "%s %f\n" | sort > temp/cache_manifest.txt
+
+      - name: Save APKs Cache
+        uses: actions/cache/save@v6
+        if: always()
+        with:
+          path: temp/apks
+          key: apks-${{ hashFiles('temp/cache_manifest.txt') }}
+
+      - name: Get output
+        id: get_output
+        run: bash .github/scripts/build_get_output.sh
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v3
+        with:
+          body: ${{ steps.get_output.outputs.BUILD_LOG }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: ./build/*
+          name: Build No. ${{ steps.version.outputs.NEXT_VER_CODE }}
+          tag_name: ${{ steps.version.outputs.NEXT_VER_CODE }}
+          overwrite_files: true
+          prerelease: ${{ steps.context.outputs.IS_PRERELEASE == 'true' }}
+
+      - name: Upload build.json to numbered release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ steps.version.outputs.NEXT_VER_CODE }} build.json \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Notify telegram automatically
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TG_CHAT_ID: "-1001864511857"
+          NEXT_VER_CODE: ${{ steps.version.outputs.NEXT_VER_CODE }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 -m pip install --disable-pip-version-check --quiet telethon cryptg
+          python3 .github/scripts/build_notify_telegram.py
+
+      - name: Update changelog and module update files
+        env:
+          NEXT_VER_CODE: ${{ steps.version.outputs.NEXT_VER_CODE }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash .github/scripts/build_update_changelog.sh
+
+      - name: Commit updated build and module update files
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          branch: update
+          skip_checkout: true
+          file_pattern: build.md
+          commit_message: Bump version ${{ steps.version.outputs.NEXT_VER_CODE }}
+
+      - name: Remove frequently updated apps
+        run: |
+          git checkout main
+          bash .github/scripts/build_exclude_from_archive.sh
+
+      - name: Upload to release (Archive)
+        uses: softprops/action-gh-release@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: ./build/*
+          tag_name: ${{ steps.context.outputs.ARCHIVE_TAG }}
+          overwrite_files: true
+          target_commitish: main
